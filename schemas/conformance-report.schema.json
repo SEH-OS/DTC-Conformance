@@ -10,7 +10,7 @@
     "generated_at": {"type": "string", "format": "date-time"},
     "harness": {"type": "object", "additionalProperties": false, "required": ["version", "commit"], "properties": {"version": {"type": "string", "minLength": 1}, "commit": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"}}},
     "environment": {"type": "object", "additionalProperties": false, "required": ["python", "platform"], "properties": {"python": {"type": "string", "minLength": 1}, "platform": {"type": "string", "minLength": 1}}},
-    "mode": {"enum": ["standard", "instance"]},
+    "mode": {"enum": ["standard", "instance", "document"]},
     "standard": {"type": "object", "additionalProperties": false, "required": ["tag", "commit"], "properties": {"tag": {"type": "string", "minLength": 1}, "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}}},
     "target": {"type": ["object", "null"], "required": ["path", "sha256"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}, "additionalProperties": false},
     "outcome": {"enum": ["pass", "fail"]},

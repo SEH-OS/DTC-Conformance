@@ -13,6 +13,7 @@ from .runner import (
     ConformanceError,
     current_harness_commit,
     execute_profile_validation,
+    execute_document_validation,
     execute_standard_gate,
     load_lock,
     report,
@@ -25,10 +26,11 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(prog="dtc-conformance")
-    result.add_argument("mode", choices=("standard", "instance"))
+    result.add_argument("mode", choices=("standard", "instance", "document"))
     result.add_argument("--standard-root", type=Path, required=True)
     result.add_argument("--profile", choices=("organization", "project", "donor-funder", "product", "verified-impact"))
     result.add_argument("--input", type=Path)
+    result.add_argument("--schema", choices=("candidate", "policy-decision", "core-event", "integrity-proof", "graph-snapshot"))
     result.add_argument("--output", type=Path, required=True)
     return result
 
@@ -45,12 +47,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.mode == "standard":
             command = ["make", "check"]
             process = execute_standard_gate(args.standard_root.resolve())
-        else:
+        elif args.mode == "instance":
             if not args.profile or not args.input:
                 raise ConformanceError("instance-requires-profile-and-input")
             target = args.input.resolve()
             command = ["profile-validator", args.profile, str(target)]
             process = execute_profile_validation(args.standard_root.resolve(), args.profile, target)
+        else:
+            if not args.schema or not args.input:
+                raise ConformanceError("document-requires-schema-and-input")
+            target = args.input.resolve()
+            process = execute_document_validation(args.standard_root.resolve(), args.schema, target)
         command = [str(item) for item in process.args]
         outcome = "pass" if process.returncode == 0 else "fail"
         if process.returncode:

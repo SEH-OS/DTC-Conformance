@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dtc-conformance"
-version = "0.1.0rc1"
+version = "0.1.0rc2"
 description = "Fail-closed conformance harness for pinned DTC Standard releases"
 requires-python = ">=3.11"
 dependencies = ["jsonschema>=4.23,<5"]

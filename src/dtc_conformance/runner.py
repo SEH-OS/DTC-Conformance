@@ -11,6 +11,9 @@ import subprocess
 from datetime import datetime, timezone
 from typing import Any
 
+from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
+
 from . import __version__
 
 
@@ -20,6 +23,13 @@ PROFILE_SCRIPTS = {
     "donor-funder": "validate_donor_funder_twin.py",
     "product": "validate_product_twin.py",
     "verified-impact": "validate_verified_impact_twin.py",
+}
+DOCUMENT_SCHEMAS = {
+    "candidate": "candidate.schema.json",
+    "policy-decision": "policy-decision.schema.json",
+    "core-event": "core-event.schema.json",
+    "integrity-proof": "integrity-proof.schema.json",
+    "graph-snapshot": "graph-snapshot.conformant.schema.json",
 }
 
 
@@ -86,6 +96,35 @@ def execute_profile_validation(
     if not instance_path.is_file():
         raise ConformanceError("instance-not-found")
     return run(["python3", str(standard_root / "scripts" / script), str(instance_path)], standard_root)
+
+
+def execute_document_validation(
+    standard_root: Path, schema_name: str, document_path: Path
+) -> subprocess.CompletedProcess[str]:
+    try:
+        filename = DOCUMENT_SCHEMAS[schema_name]
+    except KeyError as exc:
+        raise ConformanceError(f"unsupported-document-schema:{schema_name}") from exc
+    if not document_path.is_file():
+        raise ConformanceError("document-not-found")
+    schemas = standard_root / "schemas"
+    resources = []
+    try:
+        for path in schemas.glob("*.schema.json"):
+            document = json.loads(path.read_text(encoding="utf-8"))
+            resources.append((document["$id"], Resource.from_contents(document)))
+        schema = json.loads((schemas / filename).read_text(encoding="utf-8"))
+        instance = json.loads(document_path.read_text(encoding="utf-8"))
+        errors = sorted(
+            Draft202012Validator(schema, registry=Registry().with_resources(resources)).iter_errors(instance),
+            key=lambda item: list(item.absolute_path),
+        )
+    except (OSError, json.JSONDecodeError, KeyError) as exc:
+        return subprocess.CompletedProcess(["document-validator", schema_name, str(document_path)], 1, "", f"document-validation-error:{exc}")
+    if errors:
+        output = "\n".join(f"{'/'.join(map(str, error.absolute_path))}:{error.message}" for error in errors)
+        return subprocess.CompletedProcess(["document-validator", schema_name, str(document_path)], 1, "", output)
+    return subprocess.CompletedProcess(["document-validator", schema_name, str(document_path)], 0, f"document=ok schema={schema_name}\n", "")
 
 
 def file_sha256(path: Path) -> str:

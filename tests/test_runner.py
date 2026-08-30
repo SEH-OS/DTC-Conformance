@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 
-from dtc_conformance.runner import ConformanceError, load_lock, report, verify_standard_checkout
+from dtc_conformance.runner import ConformanceError, execute_document_validation, load_lock, report, verify_standard_checkout
 
 
 def git(root: Path, *args: str) -> str:
@@ -71,4 +71,17 @@ def test_report_is_explicitly_non_certifying(tmp_path: Path) -> None:
     assert "not a certification" in evidence["limitations"][0]
     assert evidence["target"]["sha256"]
     assert evidence["generated_at"].endswith("Z")
-    assert evidence["harness"]["version"] == "0.1.0rc1"
+    assert evidence["harness"]["version"] == "0.1.0rc2"
+
+
+def test_document_validation_passes_and_fails_closed(tmp_path: Path) -> None:
+    schemas = tmp_path / "schemas"
+    schemas.mkdir()
+    schema = {"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://example.invalid/test.schema.json", "type": "object", "required": ["id"], "properties": {"id": {"type": "string"}}, "additionalProperties": False}
+    (schemas / "candidate.schema.json").write_text(json.dumps(schema), encoding="utf-8")
+    valid = tmp_path / "valid.json"
+    valid.write_text('{"id":"candidate-1"}', encoding="utf-8")
+    invalid = tmp_path / "invalid.json"
+    invalid.write_text('{"id":1}', encoding="utf-8")
+    assert execute_document_validation(tmp_path, "candidate", valid).returncode == 0
+    assert execute_document_validation(tmp_path, "candidate", invalid).returncode == 1

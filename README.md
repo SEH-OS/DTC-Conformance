@@ -18,6 +18,8 @@ python -m pip install -e .
 dtc-conformance standard --standard-root ../DTC-Standard --output report.json
 dtc-conformance instance --standard-root ../DTC-Standard \
   --profile organization --input twin.json --output report.json
+dtc-conformance document --standard-root ../DTC-Standard \
+  --schema core-event --input accepted-event.json --output event-report.json
 ```
 
 The currently pinned standard is `SEH-OS/DTC-Standard@v0.3.0-rc.2`. Reports
