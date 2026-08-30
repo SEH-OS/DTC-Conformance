@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dtc-standard.org/conformance/report-v0.1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["report_version", "claim_type", "generated_at", "harness", "environment", "mode", "standard", "target", "outcome", "command", "exit_code", "stdout", "stderr", "failure", "limitations"],
+  "properties": {
+    "report_version": {"const": "0.1.0"},
+    "claim_type": {"const": "self_assessment_test_evidence"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "harness": {"type": "object", "additionalProperties": false, "required": ["version", "commit"], "properties": {"version": {"type": "string", "minLength": 1}, "commit": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"}}},
+    "environment": {"type": "object", "additionalProperties": false, "required": ["python", "platform"], "properties": {"python": {"type": "string", "minLength": 1}, "platform": {"type": "string", "minLength": 1}}},
+    "mode": {"enum": ["standard", "instance"]},
+    "standard": {"type": "object", "additionalProperties": false, "required": ["tag", "commit"], "properties": {"tag": {"type": "string", "minLength": 1}, "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}}},
+    "target": {"type": ["object", "null"], "required": ["path", "sha256"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}, "additionalProperties": false},
+    "outcome": {"enum": ["pass", "fail"]},
+    "command": {"type": "array", "items": {"type": "string"}},
+    "exit_code": {"type": ["integer", "null"]},
+    "stdout": {"type": "string"},
+    "stderr": {"type": "string"},
+    "failure": {"type": ["string", "null"]},
+    "limitations": {"type": "array", "minItems": 3, "items": {"type": "string", "minLength": 1}}
+  }
+}
