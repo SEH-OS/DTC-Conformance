@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  unit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -17,13 +17,24 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install -r requirements-dev.txt
       - run: make check
+
+  pinned-standard-integration:
+    if: github.event_name == 'push' && vars.DTC_STANDARD_ACCESS_READY == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements-dev.txt
       - uses: actions/checkout@v7
         with:
           repository: SEH-OS/DTC-Standard
           ref: 57912cc546c7d8d9b4cf0ef9a176a95c59e11063
           path: pinned-standard
+          persist-credentials: false
       - run: python -m pip install -r pinned-standard/requirements-validation.txt
-      - run: dtc-conformance standard --standard-root pinned-standard --output report.json
+      - run: dtc-conformance standard --standard-root pinned-standard --output standard-report.json
       - run: dtc-conformance instance --standard-root pinned-standard --profile organization --input pinned-standard/schemas/conformance/organization-twin.valid.json --output organization-report.json
       - run: dtc-conformance instance --standard-root pinned-standard --profile project --input pinned-standard/schemas/conformance/project-twin.valid.json --output project-report.json
       - run: dtc-conformance instance --standard-root pinned-standard --profile donor-funder --input pinned-standard/schemas/conformance/donor-funder-twin.valid.json --output donor-funder-report.json
@@ -31,5 +42,5 @@ jobs:
       - run: dtc-conformance instance --standard-root pinned-standard --profile verified-impact --input pinned-standard/schemas/conformance/verified-impact-twin.valid.json --output verified-impact-report.json
       - uses: actions/upload-artifact@v4
         with:
-          name: dtc-conformance-report
+          name: dtc-conformance-reports
           path: "*-report.json"

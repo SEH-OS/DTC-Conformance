@@ -23,6 +23,12 @@ dtc-conformance instance --standard-root ../DTC-Standard \
 The currently pinned standard is `SEH-OS/DTC-Standard@v0.3.0-rc.2`. Reports
 identify the exact commit, command, target digest, outcome and limitations.
 
+Local pinned-Standard integration passes. Hosted pinned-Standard integration
+is intentionally disabled while that repository is private and the GitHub
+organization disallows read-only deploy keys. The hosted unit job is not a
+substitute for the skipped integration gate, and no conformance release is
+published until that gate runs successfully.
+
 ## Development gate
 
 ```bash
