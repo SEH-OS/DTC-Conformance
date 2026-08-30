@@ -22,14 +22,25 @@ dtc-conformance document --standard-root ../DTC-Standard \
   --schema core-event --input accepted-event.json --output event-report.json
 ```
 
+Release validation uses the lock file by default. A pre-release integration
+workflow MAY validate exact unreleased bytes by supplying the full current SHA:
+
+```bash
+dtc-conformance standard --standard-root ../DTC-Standard \
+  --candidate-commit 0123456789abcdef0123456789abcdef01234567 \
+  --output candidate-report.json
+```
+
+Candidate mode still verifies origin, exact HEAD and a clean worktree; its
+report tag is `unreleased-candidate`. It is not a substitute for a tagged
+release report. Document mode also supports `interoperability-mapping`.
+
 The currently pinned standard is `SEH-OS/DTC-Standard@v0.3.0-rc.2`. Reports
 identify the exact commit, command, target digest, outcome and limitations.
 
-Local pinned-Standard integration passes. Hosted pinned-Standard integration
-is intentionally disabled while that repository is private and the GitHub
-organization disallows read-only deploy keys. The hosted unit job is not a
-substitute for the skipped integration gate, and no conformance release is
-published until that gate runs successfully.
+Hosted exact-pin integration is orchestrated from the private Standard
+repository and publishes the resulting reports there. Unit CI in this public
+repository is not a substitute for that integration gate.
 
 ## Development gate
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import sys
 
 from jsonschema import Draft202012Validator
@@ -28,9 +29,10 @@ def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(prog="dtc-conformance")
     result.add_argument("mode", choices=("standard", "instance", "document"))
     result.add_argument("--standard-root", type=Path, required=True)
+    result.add_argument("--candidate-commit")
     result.add_argument("--profile", choices=("organization", "project", "donor-funder", "product", "verified-impact"))
     result.add_argument("--input", type=Path)
-    result.add_argument("--schema", choices=("candidate", "policy-decision", "core-event", "integrity-proof", "graph-snapshot"))
+    result.add_argument("--schema", choices=("candidate", "policy-decision", "core-event", "integrity-proof", "graph-snapshot", "interoperability-mapping"))
     result.add_argument("--output", type=Path, required=True)
     return result
 
@@ -43,7 +45,11 @@ def main(argv: list[str] | None = None) -> int:
     command: list[str] = []
     failure = None
     try:
-        commit = verify_standard_checkout(args.standard_root.resolve(), lock["commit"], lock["repository"])
+        if args.candidate_commit and not re.fullmatch(r"[0-9a-f]{40}", args.candidate_commit):
+            raise ConformanceError("candidate-commit-invalid")
+        expected_commit = args.candidate_commit or lock["commit"]
+        standard_tag = "unreleased-candidate" if args.candidate_commit else lock["tag"]
+        commit = verify_standard_checkout(args.standard_root.resolve(), expected_commit, lock["repository"])
         if args.mode == "standard":
             command = ["make", "check"]
             process = execute_standard_gate(args.standard_root.resolve())
@@ -69,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
     evidence = report(
         mode=args.mode,
         standard_commit=commit,
-        standard_tag=lock["tag"],
+        standard_tag=standard_tag if "standard_tag" in locals() else lock["tag"],
         outcome=outcome,
         command=command,
         target=target,

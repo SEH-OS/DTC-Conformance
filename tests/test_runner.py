@@ -6,7 +6,8 @@ import subprocess
 
 import pytest
 
-from dtc_conformance.runner import ConformanceError, execute_document_validation, load_lock, report, verify_standard_checkout
+from dtc_conformance.cli import parser
+from dtc_conformance.runner import ConformanceError, DOCUMENT_SCHEMAS, execute_document_validation, load_lock, report, verify_standard_checkout
 
 
 def git(root: Path, *args: str) -> str:
@@ -71,7 +72,18 @@ def test_report_is_explicitly_non_certifying(tmp_path: Path) -> None:
     assert "not a certification" in evidence["limitations"][0]
     assert evidence["target"]["sha256"]
     assert evidence["generated_at"].endswith("Z")
-    assert evidence["harness"]["version"] == "0.1.0rc2"
+    assert evidence["harness"]["version"] == "0.1.0rc3"
+
+
+def test_interoperability_mapping_schema_is_exposed() -> None:
+    assert DOCUMENT_SCHEMAS["interoperability-mapping"] == "interoperability-mapping.schema.json"
+    parsed = parser().parse_args([
+        "document", "--standard-root", ".", "--candidate-commit", "a" * 40,
+        "--schema", "interoperability-mapping", "--input", "mapping.json",
+        "--output", "report.json",
+    ])
+    assert parsed.candidate_commit == "a" * 40
+    assert parsed.schema == "interoperability-mapping"
 
 
 def test_document_validation_passes_and_fails_closed(tmp_path: Path) -> None:

@@ -30,6 +30,7 @@ DOCUMENT_SCHEMAS = {
     "core-event": "core-event.schema.json",
     "integrity-proof": "integrity-proof.schema.json",
     "graph-snapshot": "graph-snapshot.conformant.schema.json",
+    "interoperability-mapping": "interoperability-mapping.schema.json",
 }
 
 
