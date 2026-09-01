@@ -7,7 +7,7 @@ name = "dtc-conformance"
 version = "0.1.0rc3"
 description = "Fail-closed conformance harness for pinned DTC Standard releases"
 requires-python = ">=3.11"
-dependencies = ["jsonschema>=4.23,<5"]
+dependencies = ["jsonschema[format]>=4.23,<5"]
 
 [project.scripts]
 dtc-conformance = "dtc_conformance.cli:main"
