@@ -231,27 +231,29 @@ def report(
     failure: str | None = None,
     harness_commit: str | None = None,
 ) -> dict[str, Any]:
-    return {
-        "report_version": "0.1.0",
+    target_digest = file_sha256(target) if target is not None else hashlib.sha256(standard_commit.encode()).hexdigest()
+    evidence_material = "\n".join([*command, "" if process is None else str(process.returncode), "" if process is None else process.stdout, "" if process is None else process.stderr])
+    result = {
+        "claim_id": f"dtc-conformance-{target_digest[:16]}",
+        "claim_version": "0.1.0",
         "claim_type": "self_assessment_test_evidence",
         "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "harness": {"version": __version__, "commit": harness_commit},
-        "environment": {"python": platform.python_version(), "platform": platform.platform()},
-        "mode": mode,
-        "standard": {"tag": standard_tag, "commit": standard_commit},
-        "target": None if target is None else {"path": str(target), "sha256": file_sha256(target)},
+        "claimant": {"party_id": "dtc-conformance-harness"},
+        "evaluator": {"party_id": "dtc-conformance-harness", "independent": False, "contributor": True, "conflicts_disclosed": True},
+        "standard": {"repository": "https://github.com/SEH-OS/DTC-Standard", "tag": standard_tag, "commit": standard_commit},
+        "suite": {"repository": "https://github.com/SEH-OS/DTC-Conformance", "commit": harness_commit or "0" * 40},
+        "subject": {"subject_type": "standard" if mode == "standard" else ("mapping" if mode == "document" else "profile_instance"), "subject_id": "standard-checkout" if target is None else str(target), "artifact_digest": target_digest},
+        "targets": [f"DTC {mode} validation"],
         "outcome": outcome,
-        "command": command,
-        "exit_code": None if process is None else process.returncode,
-        "stdout": "" if process is None else process.stdout[-12000:],
-        "stderr": "" if process is None else process.stderr[-12000:],
-        "failure": failure,
+        "validation_evidence": [{"procedure": " ".join(command) or "pre-validation failure", "outcome": outcome, "artifact_digest": hashlib.sha256(evidence_material.encode()).hexdigest()}],
         "limitations": [
             "This report is not a certification.",
             "It does not prove factual claims, authorization, security, privacy, legal or donor compliance.",
             "It covers only the pinned Standard release, target bytes and commands identified here.",
-        ],
+        ], "certification_status": "not_certified",
     }
+    if outcome == "fail": result["findings"] = [failure or "validation-command-failed"]
+    return result
 
 
 def current_harness_commit(root: Path) -> str | None:

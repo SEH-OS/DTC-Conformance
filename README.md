@@ -6,7 +6,8 @@ runtime implementation.
 
 The harness verifies the exact Standard commit, rejects dirty or mismatched
 checkouts, runs the complete Standard gate, validates one of the five completed
-profile instance types, and emits a machine-readable evidence report.
+profile instance types, and emits a machine-readable Conformance Claim aligned
+with the Standard's `conformance-claim.schema.json` contract.
 
 It does **not** issue certificates or prove that claims are true, that a system
 is secure, or that an organization is compliant with law or donor obligations.

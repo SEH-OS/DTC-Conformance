@@ -70,9 +70,10 @@ def test_report_is_explicitly_non_certifying(tmp_path: Path) -> None:
     )
     assert evidence["claim_type"] == "self_assessment_test_evidence"
     assert "not a certification" in evidence["limitations"][0]
-    assert evidence["target"]["sha256"]
+    assert evidence["subject"]["artifact_digest"]
     assert evidence["generated_at"].endswith("Z")
-    assert evidence["harness"]["version"] == "0.1.0rc3"
+    assert evidence["suite"]["repository"].endswith("DTC-Conformance")
+    assert evidence["certification_status"] == "not_certified"
 
 
 def test_interoperability_mapping_schema_is_exposed() -> None:

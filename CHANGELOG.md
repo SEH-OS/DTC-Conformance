@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Replaced the harness-specific evidence envelope with the Standard's unified
+  Conformance Claim 0.1 contract while preserving exact revision, target digest,
+  procedure outcome and explicit non-certification limitations.
+- Self-assessment now records the harness as a contributing, non-independent
+  evaluator and fixes certification status to `not_certified`.
+
 ## 0.1.0-rc.3 - 2026-08-30
 
 - Added schema-mode validation for DTC interoperability mapping manifests.
