@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import sys
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 
 from .runner import (
     ConformanceError,
@@ -84,7 +84,7 @@ def main(argv: list[str] | None = None) -> int:
         harness_commit=current_harness_commit(ROOT),
     )
     schema = json.loads((ROOT / "schemas/conformance-report.schema.json").read_text(encoding="utf-8"))
-    Draft202012Validator(schema).validate(evidence)
+    Draft202012Validator(schema, format_checker=FormatChecker()).validate(evidence)
     args.output.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
     return 0 if outcome == "pass" else 1
 

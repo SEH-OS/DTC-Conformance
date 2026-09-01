@@ -7,7 +7,7 @@ import subprocess
 import pytest
 
 from dtc_conformance.cli import parser
-from dtc_conformance.runner import ConformanceError, DOCUMENT_SCHEMAS, execute_document_validation, load_lock, report, verify_standard_checkout
+from dtc_conformance.runner import ConformanceError, DOCUMENT_SCHEMAS, execute_document_validation, graph_semantic_errors, load_lock, report, verify_standard_checkout
 
 
 def git(root: Path, *args: str) -> str:
@@ -97,3 +97,28 @@ def test_document_validation_passes_and_fails_closed(tmp_path: Path) -> None:
     invalid.write_text('{"id":1}', encoding="utf-8")
     assert execute_document_validation(tmp_path, "candidate", valid).returncode == 0
     assert execute_document_validation(tmp_path, "candidate", invalid).returncode == 1
+
+
+def test_document_validation_enforces_formats(tmp_path: Path) -> None:
+    schemas = tmp_path / "schemas"
+    schemas.mkdir()
+    schema = {"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://example.invalid/test.schema.json", "type": "object", "required": ["created_at"], "properties": {"created_at": {"type": "string", "format": "date-time"}}}
+    (schemas / "candidate.schema.json").write_text(json.dumps(schema), encoding="utf-8")
+    invalid = tmp_path / "invalid-time.json"
+    invalid.write_text('{"created_at":"not-a-date-time"}', encoding="utf-8")
+    assert execute_document_validation(tmp_path, "candidate", invalid).returncode == 1
+
+
+def test_graph_semantics_reject_dangling_and_cross_tenant() -> None:
+    graph = {
+        "tenant_id": "tenant-1",
+        "scope_id": "scope-1",
+        "objects": [
+            {"id": "one", "tenant_id": "tenant-1", "scope_id": "scope-1"},
+            {"id": "two", "tenant_id": "tenant-2", "scope_id": "scope-1"},
+        ],
+        "relationships": [{"id": "rel", "source_object_id": "one", "target_object_id": "missing", "tenant_id": "tenant-1", "scope_id": "scope-1"}],
+    }
+    errors = graph_semantic_errors(graph)
+    assert any("unresolved" in error for error in errors)
+    assert any("tenant_id" in error for error in errors)

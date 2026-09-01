@@ -11,7 +11,7 @@ import subprocess
 from datetime import datetime, timezone
 from typing import Any
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 
 from . import __version__
@@ -117,7 +117,7 @@ def execute_document_validation(
         schema = json.loads((schemas / filename).read_text(encoding="utf-8"))
         instance = json.loads(document_path.read_text(encoding="utf-8"))
         errors = sorted(
-            Draft202012Validator(schema, registry=Registry().with_resources(resources)).iter_errors(instance),
+            Draft202012Validator(schema, registry=Registry().with_resources(resources), format_checker=FormatChecker()).iter_errors(instance),
             key=lambda item: list(item.absolute_path),
         )
     except (OSError, json.JSONDecodeError, KeyError) as exc:
@@ -125,7 +125,36 @@ def execute_document_validation(
     if errors:
         output = "\n".join(f"{'/'.join(map(str, error.absolute_path))}:{error.message}" for error in errors)
         return subprocess.CompletedProcess(["document-validator", schema_name, str(document_path)], 1, "", output)
+    if schema_name == "graph-snapshot":
+        semantic_errors = graph_semantic_errors(instance)
+        if semantic_errors:
+            return subprocess.CompletedProcess(["document-validator", schema_name, str(document_path)], 1, "", "\n".join(semantic_errors))
     return subprocess.CompletedProcess(["document-validator", schema_name, str(document_path)], 0, f"document=ok schema={schema_name}\n", "")
+
+
+def graph_semantic_errors(snapshot: dict[str, Any]) -> list[str]:
+    """Enforce cross-record graph invariants outside JSON Schema."""
+    objects = snapshot.get("objects", [])
+    relationships = snapshot.get("relationships", [])
+    object_ids = [item.get("id") for item in objects]
+    relationship_ids = [item.get("id") for item in relationships]
+    errors: list[str] = []
+    if len(object_ids) != len(set(object_ids)):
+        errors.append("object ids must be unique")
+    if len(relationship_ids) != len(set(relationship_ids)):
+        errors.append("relationship ids must be unique")
+    known_objects = set(object_ids)
+    for relationship in relationships:
+        for endpoint in ("source_object_id", "target_object_id"):
+            if relationship.get(endpoint) not in known_objects:
+                errors.append(f"relationship {relationship.get('id', '<unknown>')} has unresolved {endpoint}")
+    tenant_ids = {item.get("tenant_id") for item in objects + relationships}
+    scope_ids = {item.get("scope_id") for item in objects + relationships}
+    if tenant_ids and tenant_ids != {snapshot.get("tenant_id")}:
+        errors.append("graph tenant_id must equal snapshot tenant_id")
+    if scope_ids and scope_ids != {snapshot.get("scope_id")}:
+        errors.append("graph scope_id must equal snapshot scope_id")
+    return errors
 
 
 def file_sha256(path: Path) -> str:
