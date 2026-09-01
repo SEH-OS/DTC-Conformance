@@ -32,6 +32,7 @@ DOCUMENT_SCHEMAS = {
     "graph-snapshot": "graph-snapshot.conformant.schema.json",
     "interoperability-mapping": "interoperability-mapping.schema.json",
 }
+EVENT_STREAM_CHECKS = {"canonical_digest", "stream_continuity", "signature", "policy_validity", "decision_replay", "obligation_satisfaction", "evidence_integrity", "projection_consistency"}
 
 
 class ConformanceError(RuntimeError):
@@ -125,10 +126,15 @@ def execute_document_validation(
     if errors:
         output = "\n".join(f"{'/'.join(map(str, error.absolute_path))}:{error.message}" for error in errors)
         return subprocess.CompletedProcess(["document-validator", schema_name, str(document_path)], 1, "", output)
+    semantic_errors: list[str] = []
     if schema_name == "graph-snapshot":
         semantic_errors = graph_semantic_errors(instance)
-        if semantic_errors:
-            return subprocess.CompletedProcess(["document-validator", schema_name, str(document_path)], 1, "", "\n".join(semantic_errors))
+    elif schema_name == "candidate" and "status" in instance:
+        semantic_errors = candidate_semantic_errors(instance)
+    elif schema_name == "integrity-proof":
+        semantic_errors = integrity_proof_semantic_errors(instance)
+    if semantic_errors:
+        return subprocess.CompletedProcess(["document-validator", schema_name, str(document_path)], 1, "", "\n".join(semantic_errors))
     return subprocess.CompletedProcess(["document-validator", schema_name, str(document_path)], 0, f"document=ok schema={schema_name}\n", "")
 
 
@@ -144,6 +150,9 @@ def graph_semantic_errors(snapshot: dict[str, Any]) -> list[str]:
     if len(relationship_ids) != len(set(relationship_ids)):
         errors.append("relationship ids must be unique")
     known_objects = set(object_ids)
+    for item in objects + relationships:
+        for error in temporal_semantic_errors(item):
+            errors.append(f"{item.get('id', '<unknown>')}: {error}")
     for relationship in relationships:
         for endpoint in ("source_object_id", "target_object_id"):
             if relationship.get(endpoint) not in known_objects:
@@ -154,6 +163,51 @@ def graph_semantic_errors(snapshot: dict[str, Any]) -> list[str]:
         errors.append("graph tenant_id must equal snapshot tenant_id")
     if scope_ids and scope_ids != {snapshot.get("scope_id")}:
         errors.append("graph scope_id must equal snapshot scope_id")
+    return errors
+
+
+def temporal_semantic_errors(record: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    for start_name, end_name in (("valid_from", "valid_to"), ("tx_from", "tx_to")):
+        if record.get(start_name) and record.get(end_name):
+            start = datetime.fromisoformat(record[start_name].replace("Z", "+00:00"))
+            end = datetime.fromisoformat(record[end_name].replace("Z", "+00:00"))
+            if end < start:
+                errors.append(f"{end_name} must not precede {start_name}")
+    return errors
+
+
+def candidate_semantic_errors(candidate: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    history = candidate.get("transition_history", [])
+    status = candidate.get("status")
+    if status != "proposed" and not history:
+        return ["a non-proposed candidate requires transition_history"]
+    previous = "proposed"
+    for index, transition in enumerate(history):
+        if transition.get("from_status") != previous:
+            errors.append(f"transition_history[{index}] is not contiguous")
+        previous = transition.get("to_status")
+    if history and previous != status:
+        errors.append("the final transition status must equal candidate status")
+    if status == "accepted" and history:
+        final = history[-1]
+        for field in ("policy_decision_id", "accepted_event_id"):
+            if final.get(field) != candidate.get(field):
+                errors.append(f"accepted transition {field} must equal candidate {field}")
+    return errors
+
+
+def integrity_proof_semantic_errors(proof: dict[str, Any]) -> list[str]:
+    applicable = proof.get("applicable_checks", [])
+    check_types = [check.get("check_type") for check in proof.get("checks", [])]
+    errors: list[str] = []
+    if len(check_types) != len(set(check_types)):
+        errors.append("each applicable integrity check must appear exactly once")
+    if set(check_types) != set(applicable):
+        errors.append("checks must exactly cover applicable_checks")
+    if proof.get("proof_type") == "event_stream" and set(applicable) != EVENT_STREAM_CHECKS:
+        errors.append("event_stream proofs require the complete check set")
     return errors
 
 

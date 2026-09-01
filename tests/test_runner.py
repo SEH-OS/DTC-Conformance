@@ -7,7 +7,7 @@ import subprocess
 import pytest
 
 from dtc_conformance.cli import parser
-from dtc_conformance.runner import ConformanceError, DOCUMENT_SCHEMAS, execute_document_validation, graph_semantic_errors, load_lock, report, verify_standard_checkout
+from dtc_conformance.runner import ConformanceError, DOCUMENT_SCHEMAS, candidate_semantic_errors, execute_document_validation, graph_semantic_errors, integrity_proof_semantic_errors, load_lock, report, verify_standard_checkout
 
 
 def git(root: Path, *args: str) -> str:
@@ -122,3 +122,14 @@ def test_graph_semantics_reject_dangling_and_cross_tenant() -> None:
     errors = graph_semantic_errors(graph)
     assert any("unresolved" in error for error in errors)
     assert any("tenant_id" in error for error in errors)
+
+
+def test_core_semantics_fail_closed() -> None:
+    assert candidate_semantic_errors({"status": "rejected"})
+    assert candidate_semantic_errors({"status": "accepted", "accepted_event_id": "a", "policy_decision_id": "d", "transition_history": [{"from_status": "proposed", "to_status": "accepted", "accepted_event_id": "b", "policy_decision_id": "d"}]})
+    assert integrity_proof_semantic_errors({"proof_type": "event_stream", "applicable_checks": ["canonical_digest"], "checks": [{"check_type": "canonical_digest", "status": "pass"}]})
+
+
+def test_graph_semantics_reject_reversed_time() -> None:
+    graph = {"tenant_id": "tenant-1", "scope_id": "scope-1", "objects": [{"id": "one", "tenant_id": "tenant-1", "scope_id": "scope-1", "valid_from": "2026-08-22T00:00:00Z", "valid_to": "2026-08-21T00:00:00Z"}], "relationships": []}
+    assert any("valid_to" in error for error in graph_semantic_errors(graph))
